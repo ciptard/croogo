@@ -139,46 +139,18 @@ class AclActionsController extends AclAppController {
     }
 
     public function admin_generate() {
-        $aco =& $this->Acl->Aco;
-        $root = $aco->node('controllers');
-        if (!$root) {
-            $aco->create(array(
-                'parent_id' => null,
-                'model' => null,
-                'alias' => 'controllers',
-            ));
-            $root = $aco->save();
-            $root['Aco']['id'] = $aco->id;
-        } else {
-            $root = $root[0];
-        }
-
         $controllerPaths = $this->AclGenerate->listControllers();
         foreach ($controllerPaths AS $controllerName => $controllerPath) {
-            $controllerNode = $aco->node('controllers/'.$controllerName);
-            if (!$controllerNode) {
-                $aco->create(array(
-                    'parent_id' => $root['Aco']['id'],
-                    'model' => null,
-                    'alias' => $controllerName,
-                ));
-                $controllerNode = $aco->save();
-                $controllerNode['Aco']['id'] = $aco->id;
-                $log[] = 'Created Aco node for '.$controllerName;
-            } else {
-                $controllerNode = $controllerNode[0];
-            }
-
             $methods = $this->AclGenerate->listActions($controllerName, $controllerPath);
             foreach ($methods AS $method) {
-                $methodNode = $aco->node('controllers/'.$controllerName.'/'.$method);
-                if (!$methodNode) {
-                    $aco->create(array(
-                        'parent_id' => $controllerNode['Aco']['id'],
-                        'model' => null,
-                        'alias' => $method,
+                $hasAco = $this->Acl->Aco->hasAny(array(
+                    'Aco.alias' => 'controllers/' . $controllerName . '/' . $method,
+                ));
+                if (!$hasAco) {
+                    $this->Acl->Aco->create(array(
+                        'alias' => 'controllers/' . $controllerName . '/' . $method,
                     ));
-                    $methodNode = $aco->save();
+                    $this->Acl->Aco->save();
                 }
             }
         }
