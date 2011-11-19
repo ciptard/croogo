@@ -3,12 +3,7 @@
     <?php echo $this->Form->create('Aco', array('url' => array('controller' => 'acl_actions', 'action' => 'add'))); ?>
         <fieldset>
         <?php
-            echo $this->Form->input('parent_id', array(
-                'options' => $acos,
-                'empty' => true,
-                'rel' => __('Choose none if the Aco is a controller.', true),
-            ));
-            echo $this->Form->input('alias', array());
+            echo $this->Form->input('alias', array('rel' => 'in the format controllers/ControllerName/action_name'));
         ?>
         </fieldset>
     <?php echo $this->Form->end('Submit'); ?>

@@ -12,47 +12,49 @@
         </ul>
     </div>
 
-    <table cellpadding="0" cellspacing="0">
+
+    <table cellpadding="0" cellspacing="0"> 
     <?php
-        $tableHeaders =  $this->Html->tableHeaders(array(
+        $tableHeaders = array(
             __('Id', true),
             __('Alias', true),
             __('Actions', true),
-        ));
+        );
+        $tableHeaders =  $this->Html->tableHeaders($tableHeaders);
         echo $tableHeaders;
-
+        
         $currentController = '';
-        foreach ($acos AS $id => $alias) {
-            $class = '';
-            if(substr($alias, 0, 1) == '_') {
-                $level = 1;
-                $class .= 'level-'.$level;
-                $oddOptions = array('class' => 'hidden controller-'.$currentController);
-                $evenOptions = array('class' => 'hidden controller-'.$currentController);
-                $alias = substr_replace($alias, '', 0, 1);
-            } else {
-                $level = 0;
-                $class .= ' controller expand';
-                $oddOptions = array();
-                $evenOptions = array();
-                $currentController = $alias;
+    
+        foreach ($acos AS $acoId => $acoAlias) {
+            $aliasE = explode('/', $acoAlias);
+            $controllerName = $aliasE['1'];
+            $actionName = $aliasE['2'];
+        
+            // controller
+            if ($controllerName != $currentController) {
+                $row = array(
+                    '',
+                    $this->Html->div('controller expand', $controllerName),
+                    '',
+                );
+                echo $this->Html->tableCells(array($row));
+                $currentController = $controllerName;
             }
-
-            $actions  = $this->Html->link(__('Edit', true), array('action' => 'edit', $id));
+        
+            // action
+            $actions  = $this->Html->link(__('Edit', true), array('action' => 'edit', $acoId));
             $actions .= ' ' . $this->Html->link(__('Delete', true), array(
                 'action' => 'delete',
-                $id,
+                $acoId,
                 'token' => $this->params['_Token']['key'],
             ), null, __('Are you sure?', true));
-            $actions .= ' ' . $this->Html->link(__('Move up', true), array('action' => 'move', $id, 'up'));
-            $actions .= ' ' . $this->Html->link(__('Move down', true), array('action' => 'move', $id, 'down'));
-
             $row = array(
-                $id,
-                $this->Html->div($class, $alias),
+                $acoId,
+                $this->Html->div('level-1', $actionName),
                 $actions,
             );
-
+            $oddOptions = array('class' => 'hidden controller-'.$controllerName);
+            $evenOptions = array('class' => 'hidden controller-'.$controllerName);
             echo $this->Html->tableCells(array($row), $oddOptions, $evenOptions);
         }
         echo $tableHeaders;
