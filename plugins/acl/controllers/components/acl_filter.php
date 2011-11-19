@@ -67,45 +67,27 @@ class AclFilterComponent extends Object {
                 'recursive' => -1,
             ));
             $aroId = $aro['Aro']['id'];
-            $thisControllerNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$this->controller->name);
-            if ($thisControllerNode) {
-                $thisControllerNode = $thisControllerNode['0'];
-                $thisControllerActions = $this->controller->Acl->Aco->find('list', array(
-                    'conditions' => array(
-                        'Aco.parent_id' => $thisControllerNode['Aco']['id'],
-                    ),
-                    'fields' => array(
-                        'Aco.id',
-                        'Aco.alias',
-                    ),
-                    'recursive' => '-1',
-                ));
-                $thisControllerActionsIds = array_keys($thisControllerActions);
-                $allowedActions = $this->controller->Acl->Aco->Permission->find('list', array(
-                    'conditions' => array(
-                        'Permission.aro_id' => $aroId,
-                        'Permission.aco_id' => $thisControllerActionsIds,
-                        'Permission._create' => 1,
-                        'Permission._read' => 1,
-                        'Permission._update' => 1,
-                        'Permission._delete' => 1,
-                    ),
-                    'fields' => array(
-                        'id',
-                        'aco_id',
-                    ),
-                    'recursive' => '-1',
-                ));
-                $allowedActionsIds = array_values($allowedActions);
-            }
-
+            
+            $acoAlias = 'controllers/' . $this->controller->name . '/' . $this->controller->params['action'];
+            $aco = $this->controller->Acl->Aco->find('first', array(
+                'conditions' => array(
+                    'Aco.alias' => $acoAlias,
+                ),
+                'recursive' => -1,
+            ));
+            $acoId = $aco['Aco']['id'];
+            
+            $isAllowed = $this->controller->Acl->Aco->Permission->hasAny(array(
+                'Permission.aro_id' => $aroId,
+                'Permission.aco_id' => $acoId,
+                'Permission._create' => 1,
+                'Permission._read' => 1,
+                'Permission._update' => 1,
+                'Permission._delete' => 1,
+            ));
             $allow = array();
-            if (isset($allowedActionsIds) &&
-                is_array($allowedActionsIds) &&
-                count($allowedActionsIds) > 0) {
-                foreach ($allowedActionsIds AS $i => $aId) {
-                    $allow[] = $thisControllerActions[$aId];
-                }
+            if ($isAllowed) {
+                $allow[] = $this->controller->params['action'];
             }
             $this->controller->Auth->allowedActions = $allow;
         }
