@@ -460,6 +460,29 @@ class CroogoComponent extends Object {
  * @return void
  */
     public function addAco($action, $allowRoles = array()) {
+        $actionE = explode('/', $action);
+        if (count($actionE) == 1) {
+            // we do not need to store controllers as ACOs
+            return false;
+        }
+        
+        // ACO
+        $aco = $this->controller->Acl->Aco->find('first', array(
+            'conditions' => array(
+                'Aco.alias' => 'controllers/' . $action,
+            ),
+            'recursive' => -1,
+        ));
+        if (!empty($aco['Aco']['id'])) {
+            $acoId = $aco['Aco']['id'];
+        } else {
+            $this->controller->Acl->Aco->create(array(
+                'alias' => 'controllers/' . $action,
+            ));
+            $this->controller->Acl->Aco->save();
+            $acoId = $this->controller->Acl->Aco->id;
+        }
+        
         // AROs
         $aroIds = array();
         if (count($allowRoles) > 0) {
@@ -484,33 +507,6 @@ class CroogoComponent extends Object {
                 ),
             ));
             $aroIds = array_keys($aros);
-        }
-
-        // ACOs
-        $acoNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$action);
-        if (!isset($acoNode['0']['Aco']['id'])) {
-            if (!strstr($action, '/')) {
-                $parentNode = $this->controller->Acl->Aco->node(str_replace('/', '', $this->controller->Auth->actionPath));
-                $alias = $action;
-            } else {
-                $actionE = explode('/', $action);
-                $controllerName = $actionE['0'];
-                $method = $actionE['1'];
-                $alias = $method;
-                $parentNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$controllerName);
-            }
-            $parentId = $parentNode['0']['Aco']['id'];
-            $acoData = array(
-                'parent_id' => $parentId,
-                'model' => null,
-                'foreign_key' => null,
-                'alias' => $alias,
-            );
-            $this->controller->Acl->Aco->id = false;
-            $this->controller->Acl->Aco->save($acoData);
-            $acoId = $this->controller->Acl->Aco->id;
-        } else {
-            $acoId = $acoNode['0']['Aco']['id'];
         }
 
         // Permissions (aros_acos)
@@ -566,6 +562,17 @@ class CroogoComponent extends Object {
         $acoNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$action);
         if (isset($acoNode['0']['Aco']['id'])) {
             $this->controller->Acl->Aco->delete($acoNode['0']['Aco']['id']);
+        }
+        
+        $actionE = explode('/', $action);
+        if (count($actionE) == 1) {
+            $this->controller->Acl->Aco->deleteAll(array(
+                'Aco.alias LIKE' => 'controllers/' . $action . '/%',
+            ));
+        } else {
+            $this->controller->Acl->Aco->deleteAll(array(
+                'Aco.alias' => 'controllers/' . $action,
+            ));
         }
     }
 /**
