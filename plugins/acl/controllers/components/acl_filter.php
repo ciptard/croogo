@@ -65,6 +65,10 @@ class AclFilterComponent extends Object {
                     'Aro.foreign_key' => $roleId,
                 ),
                 'recursive' => -1,
+                'cache' => array(
+                    'name' => 'acl_filter_role_' . $roleId,
+                    'config' => 'acl_filter',
+                ),
             ));
             $aroId = $aro['Aro']['id'];
             
@@ -74,19 +78,29 @@ class AclFilterComponent extends Object {
                     'Aco.alias' => $acoAlias,
                 ),
                 'recursive' => -1,
+                'cache' => array(
+                    'name' => 'acl_filter_aco_' . Inflector::underscore($acoAlias),
+                    'config' => 'acl_filter',
+                ),
             ));
             $acoId = $aco['Aco']['id'];
             
-            $isAllowed = $this->controller->Acl->Aco->Permission->hasAny(array(
-                'Permission.aro_id' => $aroId,
-                'Permission.aco_id' => $acoId,
-                'Permission._create' => 1,
-                'Permission._read' => 1,
-                'Permission._update' => 1,
-                'Permission._delete' => 1,
+            $permission = $this->controller->Acl->Aco->Permission->find('first', array(
+                'conditions' => array(
+                    'Permission.aro_id' => $aroId,
+                    'Permission.aco_id' => $acoId,
+                    'Permission._create' => 1,
+                    'Permission._read' => 1,
+                    'Permission._update' => 1,
+                    'Permission._delete' => 1,
+                ),
+                'cache' => array(
+                    'name' => 'acl_filter_permission_' . $aroId . '_' . $acoId,
+                    'config' => 'acl_filter',
+                ),
             ));
             $allow = array();
-            if ($isAllowed) {
+            if (!empty($permission['Permission']['id'])) {
                 $allow[] = $this->controller->params['action'];
             }
             $this->controller->Auth->allowedActions = $allow;

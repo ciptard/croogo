@@ -22,6 +22,7 @@
     Cache::config('setting_write_configuration', $cacheConfig);
 
     // components
+    Cache::config('acl_filter', $cacheConfig);
     Cache::config('croogo_blocks', $cacheConfig);
     Cache::config('croogo_menus', $cacheConfig);
     Cache::config('croogo_nodes', $cacheConfig);
