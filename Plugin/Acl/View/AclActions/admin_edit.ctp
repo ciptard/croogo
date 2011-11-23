@@ -5,12 +5,7 @@
         <fieldset>
         <?php
             echo $this->Form->input('id');
-            echo $this->Form->input('parent_id', array(
-                'options' => $acos,
-                'empty' => true,
-                'rel' => __('Choose none if the Aco is a controller.'),
-            ));
-            echo $this->Form->input('alias', array());
+            echo $this->Form->input('alias', array('rel' => 'in the format controllers/ControllerName/action_name'));
         ?>
         </fieldset>
     <?php echo $this->Form->end('Submit'); ?>

@@ -31,20 +31,26 @@ class AclPermissionsController extends AclAppController {
         'Acl.AclArosAco',
         'Role',
     );
-
+    
     public function admin_index() {
         $this->set('title_for_layout', __('Permissions'));
-
-        $acoConditions = array(
-            'parent_id !=' => null,
-            //'model' => null,
-            'foreign_key' => null,
-            'alias !=' => null,
-        );
-        $acos  = $this->Acl->Aco->generateTreeList($acoConditions, '{n}.Aco.id', '{n}.Aco.alias');
+        
+        $acos = $this->Acl->Aco->find('list', array(
+            'conditions' => array(
+                'parent_id' => null,
+                'foreign_key' => null,
+                'alias LIKE' => 'controllers%',
+            ),
+            'fields' => array(
+                'id',
+                'alias',
+            ),
+            'order' => 'Aco.alias ASC',
+            'recursive' => -1,
+        ));
         $roles = $this->Role->find('list');
         $this->set(compact('acos', 'roles'));
-
+        
         $rolesAros = $this->AclAro->find('all', array(
             'conditions' => array(
                 'AclAro.model' => 'Role',
@@ -52,30 +58,26 @@ class AclPermissionsController extends AclAppController {
             ),
         ));
         $rolesAros = Set::combine($rolesAros, '{n}.AclAro.foreign_key', '{n}.AclAro.id');
-
+        
         $permissions = array(); // acoId => roleId => bool
-        foreach ($acos AS $acoId => $acoAlias) {
-            if (substr_count($acoAlias, '_') != 0) {
-                $permission = array();
-                foreach ($roles AS $roleId => $roleTitle) {
-                    $hasAny = array(
-                        'aco_id'  => $acoId,
-                        'aro_id'  => $rolesAros[$roleId],
-                        '_create' => 1,
-                        '_read'   => 1,
-                        '_update' => 1,
-                        '_delete' => 1,
-                    );
-                    if ($this->AclArosAco->hasAny($hasAny)) {
-                        $permission[$roleId] = 1;
-                    } else {
-                        $permission[$roleId] = 0;
-                    }
-                    $permissions[$acoId] = $permission;
-                }
-            }
+        foreach ($rolesAros AS $roleId => $aroId) {
+            $rolePermissions = $this->Acl->Aco->Permission->find('list', array(
+                'conditions' => array(
+                    'Permission.aro_id' => $aroId,
+                    'Permission._create' => 1,
+                    'Permission._read' => 1,
+                    'Permission._update' => 1,
+                    'Permission._delete' => 1,
+                ),
+                'fields' => array(
+                    'id',
+                    'aco_id',
+                ),
+                'recursive' => -1,
+            ));
+            $permissions[$roleId] = array_values($rolePermissions);
         }
-        $this->set(compact('rolesAros', 'permissions'));
+        $this->set(compact('permissions', 'rolesAros'));
     }
 
     public function admin_toggle($acoId, $aroId) {

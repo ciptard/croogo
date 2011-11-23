@@ -457,87 +457,66 @@ class CroogoComponent extends Component {
  * @return void
  */
     public function addAco($action, $allowRoles = array()) {
-        // AROs
-        $aroIds = array();
-        if (count($allowRoles) > 0) {
-            $roles = ClassRegistry::init('Role')->find('list', array(
-                'conditions' => array(
-                    'Role.alias' => $allowRoles,
-                ),
-                'fields' => array(
-                    'Role.id',
-                    'Role.alias',
-                ),
-            ));
-            $roleIds = array_keys($roles);
-            $aros = $this->controller->Acl->Aro->find('list', array(
-                'conditions' => array(
-                    'Aro.model' => 'Role',
-                    'Aro.foreign_key' => $roleIds,
-                ),
-                'fields' => array(
-                    'Aro.id',
-                    'Aro.alias',
-                ),
-            ));
-            $aroIds = array_keys($aros);
-        }
-
-        // ACOs
-        $acoNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$action);
-        if (!isset($acoNode['0']['Aco']['id'])) {
-            if (!strstr($action, '/')) {
-                $parentNode = $this->controller->Acl->Aco->node(str_replace('/', '', $this->controller->Auth->actionPath));
-                $alias = $action;
-            } else {
-                $actionE = explode('/', $action);
-                $controllerName = $actionE['0'];
-                $method = $actionE['1'];
-                $alias = $method;
-                $parentNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$controllerName);
+            $actionE = explode('/', $action);
+            if (count($actionE) == 1) {
+                // we do not need to store controllers as ACOs
+                return false;
             }
-            $parentId = $parentNode['0']['Aco']['id'];
-            $acoData = array(
-                'parent_id' => $parentId,
-                'model' => null,
-                'foreign_key' => null,
-                'alias' => $alias,
-            );
-            $this->controller->Acl->Aco->id = false;
-            $this->controller->Acl->Aco->save($acoData);
-            $acoId = $this->controller->Acl->Aco->id;
-        } else {
-            $acoId = $acoNode['0']['Aco']['id'];
-        }
 
-        // Permissions (aros_acos)
-        foreach ($aroIds AS $aroId) {
-            $permission = $this->controller->Acl->Aro->Permission->find('first', array(
+            // ACO
+            $aco = $this->controller->Acl->Aco->find('first', array(
                 'conditions' => array(
-                    'Permission.aro_id' => $aroId,
-                    'Permission.aco_id' => $acoId,
+                    'Aco.alias' => 'controllers/' . $action,
                 ),
+                'recursive' => -1,
             ));
-            if (!isset($permission['Permission']['id'])) {
-                // create a new record
-                $permissionData = array(
-                    'aro_id' => $aroId,
-                    'aco_id' => $acoId,
-                    '_create' => 1,
-                    '_read' => 1,
-                    '_update' => 1,
-                    '_delete' => 1,
-                );
-                $this->controller->Acl->Aco->Permission->id = false;
-                $this->controller->Acl->Aco->Permission->save($permissionData);
+            if (!empty($aco['Aco']['id'])) {
+                $acoId = $aco['Aco']['id'];
             } else {
-                // check if not permitted
-                if ($permission['Permission']['_create'] == 0 ||
-                    $permission['Permission']['_read'] == 0 ||
-                    $permission['Permission']['_update'] == 0 ||
-                    $permission['Permission']['_delete'] == 0) {
+                $this->controller->Acl->Aco->create(array(
+                    'alias' => 'controllers/' . $action,
+                ));
+                $this->controller->Acl->Aco->save();
+                $acoId = $this->controller->Acl->Aco->id;
+            }
+
+            // AROs
+            $aroIds = array();
+            if (count($allowRoles) > 0) {
+                $roles = ClassRegistry::init('Role')->find('list', array(
+                    'conditions' => array(
+                        'Role.alias' => $allowRoles,
+                    ),
+                    'fields' => array(
+                        'Role.id',
+                        'Role.alias',
+                    ),
+                ));
+                $roleIds = array_keys($roles);
+                $aros = $this->controller->Acl->Aro->find('list', array(
+                    'conditions' => array(
+                        'Aro.model' => 'Role',
+                        'Aro.foreign_key' => $roleIds,
+                    ),
+                    'fields' => array(
+                        'Aro.id',
+                        'Aro.alias',
+                    ),
+                ));
+                $aroIds = array_keys($aros);
+            }
+
+            // Permissions (aros_acos)
+            foreach ($aroIds AS $aroId) {
+                $permission = $this->controller->Acl->Aro->Permission->find('first', array(
+                    'conditions' => array(
+                        'Permission.aro_id' => $aroId,
+                        'Permission.aco_id' => $acoId,
+                    ),
+                ));
+                if (!isset($permission['Permission']['id'])) {
+                    // create a new record
                     $permissionData = array(
-                        'id' => $permission['Permission']['id'],
                         'aro_id' => $aroId,
                         'aco_id' => $acoId,
                         '_create' => 1,
@@ -545,12 +524,29 @@ class CroogoComponent extends Component {
                         '_update' => 1,
                         '_delete' => 1,
                     );
-                    $this->controller->Acl->Aco->Permission->id = $permission['Permission']['id'];
+                    $this->controller->Acl->Aco->Permission->id = false;
                     $this->controller->Acl->Aco->Permission->save($permissionData);
+                } else {
+                    // check if not permitted
+                    if ($permission['Permission']['_create'] == 0 ||
+                        $permission['Permission']['_read'] == 0 ||
+                        $permission['Permission']['_update'] == 0 ||
+                        $permission['Permission']['_delete'] == 0) {
+                        $permissionData = array(
+                            'id' => $permission['Permission']['id'],
+                            'aro_id' => $aroId,
+                            'aco_id' => $acoId,
+                            '_create' => 1,
+                            '_read' => 1,
+                            '_update' => 1,
+                            '_delete' => 1,
+                        );
+                        $this->controller->Acl->Aco->Permission->id = $permission['Permission']['id'];
+                        $this->controller->Acl->Aco->Permission->save($permissionData);
+                    }
                 }
             }
         }
-    }
 /**
  * ACL: remove ACO
  *
@@ -560,11 +556,22 @@ class CroogoComponent extends Component {
  * @return void
  */
     public function removeAco($action) {
-        $acoNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$action);
-        if (isset($acoNode['0']['Aco']['id'])) {
-            $this->controller->Acl->Aco->delete($acoNode['0']['Aco']['id']);
+            $acoNode = $this->controller->Acl->Aco->node($this->controller->Auth->actionPath.$action);
+            if (isset($acoNode['0']['Aco']['id'])) {
+                $this->controller->Acl->Aco->delete($acoNode['0']['Aco']['id']);
+            }
+
+            $actionE = explode('/', $action);
+            if (count($actionE) == 1) {
+                $this->controller->Acl->Aco->deleteAll(array(
+                    'Aco.alias LIKE' => 'controllers/' . $action . '/%',
+                ));
+            } else {
+                $this->controller->Acl->Aco->deleteAll(array(
+                    'Aco.alias' => 'controllers/' . $action,
+                ));
+            }
         }
-    }
 /**
  * Loads plugin's bootstrap.php file
  *
